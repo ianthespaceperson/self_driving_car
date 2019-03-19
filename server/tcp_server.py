@@ -1,10 +1,12 @@
-#!/usr/bin/env python
+#/usr/bin/env python
 import RPi.GPIO as GPIO
 import video_dir
 import car_dir
 import motor
 from socket import *
-from time import ctime          # Import necessary modules   
+from time import ctime
+import cv2
+# Import necessary modules
 
 ctrl_cmd = ['forward', 'backward', 'left', 'right', 'stop', 'read cpu_temp', 'home', 'distance', 'x+', 'x-', 'y+', 'y-', 'xy_home']
 
@@ -16,48 +18,59 @@ BUFSIZ = 1024       # Size of the buffer
 ADDR = (HOST, PORT)
 
 tcpSerSock = socket(AF_INET, SOCK_STREAM)    # Create a socket.
-tcpSerSock.bind(ADDR)    # Bind the IP address and port number of the server. 
-tcpSerSock.listen(5)     # The parameter of listen() defines the number of connections permitted at one time. Once the 
-                         # connections are full, others will be rejected. 
+tcpSerSock.bind(ADDR)    # Bind the IP address and port number of the server.
+tcpSerSock.listen(5)     # The parameter of listen() defines the number of connections permitted at one time. Once the
+                         # connections are full, others will be rejected.
 
 video_dir.setup(busnum=busnum)
 car_dir.setup(busnum=busnum)
-motor.setup(busnum=busnum)     # Initialize the Raspberry Pi GPIO connected to the DC motor. 
+motor.setup(busnum=busnum)     # Initialize the Raspberry Pi GPIO connected to the DC motor.
 video_dir.home_x_y()
 car_dir.home()
 
+cam = cv2.VideoCapture(0)
+print("enter in path to save images")
+pth = input()
+
 while True:
 	print 'Waiting for connection...'
-	# Waiting for connection. Once receiving a connection, the function accept() returns a separate 
-	# client socket for the subsequent communication. By default, the function accept() is a blocking 
+	# Waiting for connection. Once receiving a connection, the function accept() returns a separate
+	# client socket for the subsequent communication. By default, the function accept() is a blocking
 	# one, which means it is suspended before the connection comes.
-	tcpCliSock, addr = tcpSerSock.accept() 
+	tcpCliSock, addr = tcpSerSock.accept()
 	print '...connected from :', addr     # Print the IP address of the client connected with the server.
 
 	while True:
+                num = 1
+                _, img = cam.read()
 		data = ''
-		data = tcpCliSock.recv(BUFSIZ)    # Receive data sent from the client. 
+		data = tcpCliSock.recv(BUFSIZ)    # Receive data sent from the client.
 		# Analyze the command received and control the car accordingly.
 		if not data:
 			break
 		if data == ctrl_cmd[0]:
 			print 'motor moving forward'
 			motor.forward()
-		elif data == ctrl_cmd[1]:
+		        cv2.imwrite(pth + "/w/" + num + '.jpg', img)
+                elif data == ctrl_cmd[1]:
 			print 'recv backward cmd'
 			motor.backward()
+		        cv2.imwrite(pth + "/s/" + num + '.jpg', img)
 		elif data == ctrl_cmd[2]:
 			print 'recv left cmd'
 			car_dir.turn_left()
+		        cv2.imwrite(pth + "/a/" + num + '.jpg', img)
 		elif data == ctrl_cmd[3]:
 			print 'recv right cmd'
 			car_dir.turn_right()
+		        cv2.imwrite(pth + "/d/" + num + '.jpg', img)
 		elif data == ctrl_cmd[6]:
 			print 'recv home cmd'
 			car_dir.home()
 		elif data == ctrl_cmd[4]:
 			print 'recv stop cmd'
 			motor.ctrl(0)
+		        cv2.imwrite(pth + "/spc/" + num + '.jpg', img)
 		elif data == ctrl_cmd[5]:
 			print 'read cpu temp...'
 			temp = cpu_temp.read()
@@ -115,7 +128,7 @@ while True:
 
 		else:
 			print 'Command Error! Cannot recognize command: ' + data
-
+                num += 1
 tcpSerSock.close()
 
 
